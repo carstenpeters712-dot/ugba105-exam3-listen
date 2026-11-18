@@ -169,7 +169,7 @@ function minutesLeft(){
     words+=lineWords[idx];
   }
   for(let i=idx+1;i<lineWords.length;i++) words+=lineWords[i];
-  return words/(180*spokenRate());
+  return words/(180*rate);
 }
 function leftLabel(mins){
   if(mins<0.5) return '<1 min left';
@@ -180,10 +180,6 @@ function leftLabel(mins){
 }
 function paintStatus(){
   listenStatus.textContent=(idx+1)+' / '+lines.length+' · '+leftLabel(minutesLeft());
-}
-function spokenRate(){
-  if(rate!==2) return 1;
-  return ios?1.5:2;
 }
 function speakCurrent(){
   if(!window.speechSynthesis){
@@ -210,27 +206,18 @@ function speakCurrent(){
   if(!text.trim()){ advance(); return; }
   const u=new SpeechSynthesisUtterance(text);
   held=u;
-  u.rate=spokenRate();
+  u.rate=rate;
   u.lang='en-US';
-  if(!(ios&&rate===2)){
-    const v=pickVoice();
-    if(v) u.voice=v;
-  }
+  const v=pickVoice();
+  if(v) u.voice=v;
   let started=false;
-  u.onstart=()=>{ started=true; fails=0; };
+  u.onstart=()=>{ started=true; };
   u.onend=advance;
   u.onerror=e=>{
-    if(my!==token||!playing) return;
     const err=e&&e.error;
-    if((err==='interrupted'||err==='canceled'||err==='cancelled')&&fails<1){
-      fails++;
-      speakCurrent();
-      return;
-    }
     if(err==='interrupted'||err==='canceled'||err==='cancelled') return;
     advance();
   };
-  try{ speechSynthesis.resume(); }catch(e){}
   speechSynthesis.speak(u);
   setTimeout(()=>{
     if(my!==token||!playing||started) return;
@@ -309,14 +296,9 @@ speechSynthesis.getVoices();
 window.speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices();
 if(ios){
   setInterval(()=>{
-    if(!playing||!window.speechSynthesis||spokenRate()>1) return;
-    try{
-      if(speechSynthesis.paused) speechSynthesis.resume();
-      else if(speechSynthesis.speaking){
-        speechSynthesis.pause();
-        speechSynthesis.resume();
-      }
-    }catch(e){}
+    if(!playing||!speechSynthesis.speaking) return;
+    speechSynthesis.pause();
+    speechSynthesis.resume();
   },10000);
 }
 document.addEventListener('visibilitychange',()=>{
